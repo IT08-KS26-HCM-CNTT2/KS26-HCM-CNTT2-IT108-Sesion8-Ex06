@@ -1,0 +1,43 @@
+
+Phần 1: Phân tích (Auditing) đoạn mã AI gợi ý
+1. Điểm cực kỳ nguy hiểm trong đoạn mã
+Đoạn mã do AI cung cấp:
+PowerShell
+Remove-Item -Path "C:\*" -Recurse -Force
+Write-Host "Da don dep xong!"
+Điểm cực nguy hiểm: Đường dẫn được chỉ định là "C:\*", đây là thư mục gốc (root) của ổ đĩa hệ thống Windows. Kết hợp với các tham số xóa triệt để, lệnh này sẽ xóa sạch toàn bộ thư mục, tệp hệ thống, dữ liệu phần mềm và tệp cá nhân nằm trong ổ C, dẫn đến việc hỏng hệ điều hành (crash hệ thống) ngay lập tức.
+2. Giải thích ý nghĩa từng tham số
+-Path "C:\*": Xác định đường dẫn mục tiêu cần tác động. Dấu * đại diện cho tất cả các tệp và thư mục con nằm ngay bên trong ổ đĩa gốc C:\.
+-Recurse: Cho phép thực thi đệ quy. Lệnh sẽ quét và đi sâu vào tất cả các thư mục con, thư mục cháu bên trong để xóa toàn bộ dữ liệu cấu trúc phân cấp bên dưới mà không dừng lại ở lớp ngoài.
+-Force: Ép buộc xóa cả các tệp có thuộc tính đặc biệt (như tệp ẩn - hidden, tệp chỉ đọc - read-only, hoặc tệp hệ thống) mà thông thường PowerShell sẽ đưa ra cảnh báo hoặc từ chối xóa.
+3. Hậu quả nếu chạy đoạn script trên
+Hệ điều hành Windows sẽ bị xóa các tệp lõi, gây lỗi màn hình xanh (BSOD) hoặc không thể khởi động lại máy tính (brick máy).
+Toàn bộ dữ liệu quan trọng của "Trang trại Lan thông minh" lưu trữ trên máy chủ sẽ mất vĩnh viễn và không thể khôi phục dễ dàng.
+4. Áp dụng 3 Nguyên tắc "Vàng" thẩm định mã AI
+Không bao giờ chạy trực tiếp code AI sinh ra trên môi trường Production/Hệ thống thật khi chưa đọc hiểu rõ từng dòng lệnh.
+Kiểm tra kỹ phạm vi tác động (Scope/Path) của các lệnh thao tác tệp, đặc biệt là các lệnh có tính hủy diệt như Remove-Item, rm, del.
+Thử nghiệm trên môi trường giả lập/sandbox an toàn trước khi đưa vào áp dụng thực tế.
+Phần 2: Triển khai (Safe Script)
+Tạo tệp safe_cleanup.ps1 với nội dung hoàn chỉnh và an toàn như sau:
+PowerShell
+# Bước 1: Di chuyển đến thư mục logs của dự án một cách an toàn
+Set-Location -Path "C:\SmartOrchidFarm\logs"
+# Bước 2: Lọc các dòng chứa chữ "WARNING" từ tệp system.log ra tệp issues.txt
+Select-String -Path "system.log" -Pattern "WARNING" | Out-File -FilePath "issues.txt"
+# Bước 3: Khoanh vùng và chỉ xóa các tệp .tmp bên trong thư mục hiện tại
+Get-ChildItem -Path "." -Filter "*.tmp" | Remove-Item -Force
+Write-Host "Da don dep va xu ly log an toan!"
+Phần 3: Kiểm thử (Verify)
+Các câu lệnh kiểm tra kết quả thực thi trên PowerShell để đảm bảo script hoạt động đúng và an toàn:
+Kiểm tra nội dung tệp báo cáo issues.txt vừa tạo:
+PowerShell
+Get-Content -Path "issues.txt"
+(Lệnh này giúp xem nhanh các dòng cảnh báo WARNING đã được lọc ra chính xác hay chưa).
+Kiểm tra xem các tệp .tmp đã bị xóa sạch hay chưa:
+PowerShell
+Get-ChildItem -Path "." -Filter "*.tmp"
+(Nếu trả về kết quả trống hoặc không tìm thấy tệp nào, nghĩa là các tệp tạm đã được dọn dẹp thành công).
+Kiểm tra nhanh sự tồn tại của tệp báo cáo:
+PowerShell
+Test-Path -Path "issues.txt"
+(Trả về kết quả True xác nhận tệp báo cáo đã được khởi tạo thành công).
